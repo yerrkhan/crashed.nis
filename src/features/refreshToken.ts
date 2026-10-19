@@ -1,7 +1,7 @@
 import proxy from '@/shared/http'
 import { REFRESH_TOKEN } from '@/shared/constants/endpoints'
 import { v4 } from 'uuid'
-import { LoginHttpResponse } from '@/shared/types'
+import { type LoginHttpResponse } from '@/shared/types'
 import { getAdditionalUserInfo } from '@/features/getAdditionalUserInfo'
 import { getCityByJceUrl } from '@/lib/utils'
 
@@ -29,7 +29,9 @@ export const refreshToken = async (
     .then((res) => res.data)
 
   const {
-    school: { gid: UserSchoolGid },
+    data: {
+      School: { Gid: UserSchoolGid },
+    },
   } = await getAdditionalUserInfo(accessToken)
 
   const schoolOrganization = applications.find((application) => {
@@ -38,9 +40,13 @@ export const refreshToken = async (
     )
   })
 
+  if (!schoolOrganization) {
+    throw new Error('Филиал НИШ не найден в списке приложений')
+  }
+
   return {
     accessToken,
     refreshToken,
-    city: getCityByJceUrl(schoolOrganization?.url!),
+    city: getCityByJceUrl(schoolOrganization.url),
   }
 }

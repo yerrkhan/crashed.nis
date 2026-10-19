@@ -1,9 +1,9 @@
 import { Hono } from 'hono'
-import { authMiddleware } from '@/app/api/[[...route]]/route'
+import { authMiddleware } from '@/server/middleware/auth'
 import { decode } from '@/lib/token/jwt'
-import { Userinfo } from '@/shared/types'
+import { type Userinfo } from '@/shared/types'
 import { getAdditionalUserInfo } from '@/features/getAdditionalUserInfo'
-import { Session } from '@/lib/token/resolver'
+import { type Session } from '@/lib/token/resolver'
 import { getJournal } from '@/features/getJournal'
 import { HTTPException } from 'hono/http-exception'
 import { z } from 'zod'
@@ -70,9 +70,11 @@ app.get('/journal/:subject', async (c) => {
 
     return c.json(data)
   } catch (e) {
+    const responseData: unknown = isAxiosError(e) ? e.response?.data : undefined
+    const message = (responseData as { message?: unknown } | undefined)?.message
     if (
-      isAxiosError(e) &&
-      e.response?.data.message.startsWith('предмет не найден')
+      typeof message === 'string' &&
+      message.startsWith('предмет не найден')
     ) {
       throw new HTTPException(404, {
         res: Response.json({
