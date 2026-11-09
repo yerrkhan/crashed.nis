@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { LinkBreak, Spinner } from '@phosphor-icons/react'
+import styles from './journal.module.scss'
 
 type JournalRubricProps = { subject: string; quarter: number }
 type ScoreRow = {
@@ -92,7 +93,7 @@ const RubricCalculator: FC<{ data: RubricInfo }> = ({ data }) => {
       id: kind + '-new-' + nextId,
       title: kind === 'chapter' ? 'Новый СОР' : 'Новый СОЧ',
       mark: '',
-      maxMark: '',
+      maxMark: '20',
       added: true,
     }
     setNextId((current) => current + 1)
@@ -104,56 +105,29 @@ const RubricCalculator: FC<{ data: RubricInfo }> = ({ data }) => {
     rows: ScoreRow[],
     setRows: React.Dispatch<React.SetStateAction<ScoreRow[]>>,
   ) =>
-    rows.map((row) => (
-      <div
-        className="mb-2 flex items-center justify-between gap-2"
-        key={row.id}
-      >
-        <span className="min-w-0 flex-1 break-words text-sm sm:text-base">
-          {row.title}
-        </span>
-        {editing ? (
-          <div className="flex shrink-0 items-center gap-1">
-            <Input
-              aria-label={'Баллы: ' + row.title}
-              type="number"
-              inputMode="decimal"
-              min="0"
-              max={row.maxMark || undefined}
-              step="any"
-              placeholder="0"
-              value={row.mark}
-              onChange={(event) =>
-                setRows((current) =>
-                  current.map((item) =>
-                    item.id === row.id
-                      ? { ...item, mark: event.target.value }
-                      : item,
-                  ),
-                )
-              }
-              className="h-9 w-14 px-1 text-center sm:w-16"
-            />
-            <span aria-hidden="true">/</span>
-            <Input
-              aria-label={'Максимум: ' + row.title}
-              type="number"
-              inputMode="decimal"
-              min="0.01"
-              step="any"
-              placeholder="20"
-              value={row.maxMark}
-              onChange={(event) =>
-                setRows((current) =>
-                  current.map((item) =>
-                    item.id === row.id
-                      ? { ...item, maxMark: event.target.value }
-                      : item,
-                  ),
-                )
-              }
-              className="h-9 w-14 px-1 text-center sm:w-16"
-            />
+    rows.map((row) => {
+      const maximum = points(row.maxMark)
+      const sliderEnabled = Number.isFinite(maximum) && maximum > 0
+      const sliderValue = row.mark === '' ? 0 : points(row.mark)
+      const sliderPercent = sliderEnabled
+        ? Math.min(100, Math.max(0, (sliderValue / maximum) * 100))
+        : 0
+      const values = [row.mark, row.maxMark]
+        .filter((value) => value !== '')
+        .map(points)
+      const sliderStep = values.every(Number.isInteger)
+        ? '1'
+        : values.every((value) => Number.isInteger(value * 2))
+          ? '0.5'
+          : '0.01'
+      const sliderId = 'points-' + row.id
+
+      return editing ? (
+        <div className="mb-3 rounded-lg border bg-muted/30 p-3" key={row.id}>
+          <div className="mb-2 flex items-start justify-between gap-2">
+            <label htmlFor={sliderId} className="min-w-0 break-words text-sm">
+              {row.title}
+            </label>
             {row.added && (
               <Button
                 type="button"
@@ -165,19 +139,116 @@ const RubricCalculator: FC<{ data: RubricInfo }> = ({ data }) => {
                     current.filter((item) => item.id !== row.id),
                   )
                 }
-                className="px-1"
+                className="-mr-2 -mt-2 px-2"
               >
                 ×
               </Button>
             )}
           </div>
-        ) : (
+          <div className="mb-2 flex items-center justify-between gap-2 text-sm">
+            <output htmlFor={sliderId} className="font-semibold tabular-nums">
+              {row.mark === '' ? '— баллов' : format(sliderValue) + ' баллов'}
+            </output>
+            <div className="flex shrink-0 items-center gap-1 text-muted-foreground">
+              <span>из</span>
+              <Input
+                aria-label={'Максимум: ' + row.title}
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                step="any"
+                value={row.maxMark}
+                onChange={(event) =>
+                  setRows((current) =>
+                    current.map((item) => {
+                      if (item.id !== row.id) return item
+                      const nextMaximum = points(event.target.value)
+                      return {
+                        ...item,
+                        maxMark: event.target.value,
+                        mark:
+                          item.mark !== '' &&
+                          Number.isFinite(nextMaximum) &&
+                          nextMaximum > 0 &&
+                          points(item.mark) > nextMaximum
+                            ? format(nextMaximum)
+                            : item.mark,
+                      }
+                    }),
+                  )
+                }
+                className="h-8 w-16 px-1 text-center tabular-nums"
+              />
+            </div>
+          </div>
+          <input
+            id={sliderId}
+            type="range"
+            min="0"
+            max={sliderEnabled ? maximum : 1}
+            step={sliderStep}
+            value={sliderEnabled ? Math.min(sliderValue, maximum) : 0}
+            disabled={!sliderEnabled}
+            aria-valuetext={
+              row.mark === ''
+                ? 'Баллы не выбраны'
+                : format(sliderValue) + ' из ' + row.maxMark
+            }
+            onPointerDown={() => {
+              if (row.mark === '')
+                setRows((current) =>
+                  current.map((item) =>
+                    item.id === row.id ? { ...item, mark: '0' } : item,
+                  ),
+                )
+            }}
+            onKeyDown={(event) => {
+              if (
+                row.mark === '' &&
+                ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)
+              )
+                setRows((current) =>
+                  current.map((item) =>
+                    item.id === row.id ? { ...item, mark: '0' } : item,
+                  ),
+                )
+            }}
+            onChange={(event) =>
+              setRows((current) =>
+                current.map((item) =>
+                  item.id === row.id
+                    ? { ...item, mark: event.target.value }
+                    : item,
+                ),
+              )
+            }
+            className={styles.scoreSlider}
+            style={{
+              background:
+                'linear-gradient(to right, hsl(var(--primary)) ' +
+                sliderPercent +
+                '%, hsl(var(--secondary)) ' +
+                sliderPercent +
+                '%)',
+            }}
+          />
+          <div className="mt-1 flex justify-between text-xs text-muted-foreground">
+            <span>0</span>
+            <span>{sliderEnabled ? format(maximum) : 'Укажите максимум'}</span>
+          </div>
+        </div>
+      ) : (
+        <div
+          className="mb-1 flex items-start justify-between gap-2"
+          key={row.id}
+        >
+          <span className="min-w-0 break-words">{row.title}</span>
           <span className="shrink-0">
             {row.mark || '-'}/{row.maxMark}
           </span>
-        )}
-      </div>
-    ))
+        </div>
+      )
+    })
 
   return (
     <div>
@@ -202,7 +273,8 @@ const RubricCalculator: FC<{ data: RubricInfo }> = ({ data }) => {
 
       {editing && (
         <p className="mb-3 text-sm text-muted-foreground">
-          Меняйте баллы и максимум. Расчёт не изменяет данные в журнале.
+          Двигайте ползунок баллов; максимум можно изменить справа. Расчёт не
+          изменяет данные в журнале.
         </p>
       )}
 

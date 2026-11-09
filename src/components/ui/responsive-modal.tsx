@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { type FC } from 'react'
 import { useMedia } from 'react-use'
 import {
   Dialog,
@@ -20,7 +20,6 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer'
-import { FC } from 'react'
 
 type ResponsiveModalProps = {
   children: React.ReactNode
@@ -44,7 +43,7 @@ const ResponsiveModal: FC<ResponsiveModalProps> = ({
     return (
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>{trigger}</DialogTrigger>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>{description}</DialogDescription>
@@ -58,12 +57,12 @@ const ResponsiveModal: FC<ResponsiveModalProps> = ({
   return (
     <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>{trigger}</DrawerTrigger>
-      <DrawerContent>
+      <DrawerContent className="max-h-[calc(100dvh-2rem)]">
         <DrawerHeader className="text-left">
           <DrawerTitle>{title}</DrawerTitle>
           <DrawerDescription>{description}</DrawerDescription>
         </DrawerHeader>
-        <div className="px-4">{children}</div>
+        <div className="min-h-0 overflow-y-auto px-4">{children}</div>
         <DrawerFooter className="pt-2">
           <DrawerClose asChild>{close}</DrawerClose>
         </DrawerFooter>
